@@ -2,14 +2,96 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Редактируемая таблица через Google Sheets</title>
+  <title>Копирование диапазона как картинку</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    body, html { margin:0; height:100%; }
-    iframe { border:none; width:100%; height:100%; }
+    body { font-family: Arial; display: flex; padding: 20px; }
+    #table-container { flex:1; }
+    table { border-collapse: collapse; }
+    th, td { border:1px solid #ccc; padding:4px; }
+    th { background:#f0f0f0; }
+    #controls { margin-left:20px; }
+    #controls button { margin-bottom:10px; padding:8px 12px; }
   </style>
 </head>
 <body>
-  <!-- Вставьте сюда ваш embed-код из Google Sheets -->
-  <iframe src="https://docs.google.com/spreadsheets/d/1LO8qLRD45KmJBDdm9YFbCMdC1HUwuGmJ/edit?usp=sharing&rm=minimal"></iframe>
+
+  <div id="table-container">Загружаю данные...</div>
+
+  <div id="controls">
+    <h2>Действия</h2>
+    <button id="copy-img">Копировать B9:O22 как картинку</button>
+  </div>
+
+  <script>
+    const EXCEL_URL = 'https://raw.githubusercontent.com/IlyaStogoff/sticker-prices/main/Sticker.food_08.06.25.xlsx';
+    let table;
+
+    // 1) Загружаем и рисуем таблицу
+    fetch(EXCEL_URL)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(data => {
+        const wb = XLSX.read(data,{type:'array'});
+        const sh = wb.Sheets[wb.SheetNames[0]];
+        document.getElementById('table-container').innerHTML =
+          XLSX.utils.sheet_to_html(sh, {header:''});
+        table = document.querySelector('#table-container table');
+      })
+      .catch(err=>{
+        document.getElementById('table-container').textContent = 'Ошибка: '+err;
+      });
+
+    // 2) При клике – рендерим нужный диапазон в canvas → конвертим в Blob → копируем
+    document.getElementById('copy-img').onclick = async () => {
+      if (!table) return alert('Ждите загрузки таблицы…');
+
+      // Выделяем див-обёртку нужной области
+      // Создадим временный контейнер и клонируем туда нужные строки/столбцы
+      const temp = document.createElement('table');
+      temp.style.borderCollapse = 'collapse';
+      temp.style.background = '#fff';
+      const startRow=8, endRow=21, startCol=1, endCol=14;
+      for (let i=startRow; i<=endRow; i++){
+        const tr = document.createElement('tr');
+        const srcRow = table.rows[i];
+        for (let j=startCol; j<=endCol; j++){
+          const cell = srcRow.cells[j].cloneNode(true);
+          // сохраним границы и фон
+          cell.style.border='1px solid #ccc';
+          if (cell.tagName==='TH') cell.style.background='#f0f0f0';
+          tr.appendChild(cell);
+        }
+        temp.appendChild(tr);
+      }
+      // Помещаем временный table в документ, но за пределы экрана, чтобы html2canvas его увидел
+      temp.style.position='fixed';
+      temp.style.top='-10000px';
+      document.body.appendChild(temp);
+
+      try {
+        // Рендерим в canvas
+        const canvas = await html2canvas(temp, { scale:2 });
+        // Удаляем временную таблицу
+        document.body.removeChild(temp);
+
+        // Преобразуем canvas в Blob (PNG)
+        canvas.toBlob(async blob => {
+          try {
+            // Копируем в буфер как изображение
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            alert('Диапазон скопирован в буфер как изображение!');
+          } catch (e) {
+            alert('Ошибка копирования изображения: ' + e);
+          }
+        }, 'image/png');
+      } catch (e) {
+        alert('Ошибка рендеринга: ' + e);
+      }
+    };
+  </script>
+
 </body>
 </html>
