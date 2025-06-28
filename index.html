@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Просмотр Excel на сайте</title>
+  <!-- Подключаем SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #table-container table { border-collapse: collapse; width: 100%; }
+    #table-container th, #table-container td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    #table-container th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+
+  <h1>Таблица цен на наклейки</h1>
+  <div id="table-container">Загружаю данные...</div>
+
+  <script>
+    // URL к вашему файлу Excel — положите его рядом с этим HTML или отдавайте через сервер
+    const EXCEL_URL = 'Sticker.food_08.06.25.xlsx';
+
+    fetch(EXCEL_URL)
+      .then(res => res.arrayBuffer())
+      .then(data => {
+        // Читаем книгу
+        const workbook = XLSX.read(data, { type: 'array' });
+        // Берём первый лист
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        // Конвертируем в HTML
+        const html = XLSX.utils.sheet_to_html(sheet, { header: '' });
+        // Вставляем в контейнер
+        document.getElementById('table-container').innerHTML = html;
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('table-container').textContent =
+          'Ошибка при загрузке или чтении файла Excel.';
+      });
+  </script>
+
+</body>
+</html>
