@@ -2,49 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Просмотр Excel на сайте</title>
-  <!-- Библиотека SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <title>Редактируемая таблица через Google Sheets</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #table-container table { border-collapse: collapse; width: 100%; }
-    #table-container th, #table-container td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    #table-container th { background: #f0f0f0; }
+    body, html { margin:0; height:100%; }
+    iframe { border:none; width:100%; height:100%; }
   </style>
 </head>
 <body>
-
-  <h1>Таблица цен на наклейки</h1>
-  <div id="table-container">Загружаю данные...</div>
-
-  <script>
-    // ← сюда вставьте вашу реальную ссылку на .xlsx
-    // например:
-    // const EXCEL_URL = 'https://raw.githubusercontent.com/ваш-ник/репо/main/Sticker.food.xlsx';
-    const EXCEL_URL = 'https://github.com/IlyaStogoff/sticker-prices/raw/refs/heads/main/Sticker.food_08.06.25.xlsx';
-
-    fetch(EXCEL_URL)
-      .then(res => {
-        if (!res.ok) throw new Error(`Ошибка загрузки: ${res.status}`);
-        return res.arrayBuffer();
-      })
-      .then(data => {
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const html = XLSX.utils.sheet_to_html(sheet, { header: '' });
-        document.getElementById('table-container').innerHTML = html;
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById('table-container').textContent =
-          'Ошибка при загрузке или чтении файла Excel: ' + err.message;
-      });
-  </script>
-
+  <!-- Вставьте сюда ваш embed-код из Google Sheets -->
+  <iframe src="https://docs.google.com/spreadsheets/d/1LO8qLRD45KmJBDdm9YFbCMdC1HUwuGmJ/edit?usp=sharing&rm=minimal"></iframe>
 </body>
 </html>
