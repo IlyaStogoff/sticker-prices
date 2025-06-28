@@ -2,95 +2,139 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Копирование диапазона как картинку</title>
+  <title>Редактируемая таблица + копирование снимка</title>
+  <!-- SheetJS для чтения Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <!-- html2canvas для рендеринга DOM в изображение -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    body { font-family: Arial; display: flex; padding: 20px; }
-    #table-container { flex:1; }
-    table { border-collapse: collapse; }
-    th, td { border:1px solid #ccc; padding:4px; }
-    th { background:#f0f0f0; }
-    #controls { margin-left:20px; }
-    #controls button { margin-bottom:10px; padding:8px 12px; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+    #left {
+      flex: 2;
+      padding: 10px;
+      overflow: auto;
+    }
+    #right {
+      flex: 1;
+      padding: 10px;
+      border-left: 1px solid #ddd;
+      box-sizing: border-box;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px;
+    }
+    th {
+      background: #f0f0f0;
+    }
+    button {
+      display: block;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      font-size: 16px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
-  <div id="table-container">Загружаю данные...</div>
+  <!-- Левая колонка: тут будет таблица -->
+  <div id="left">
+    <h2>Таблица цен на наклейки</h2>
+    <div id="table-container">Загружаю данные…</div>
+  </div>
 
-  <div id="controls">
+  <!-- Правая колонка: кнопки действий -->
+  <div id="right">
     <h2>Действия</h2>
-    <button id="copy-img">Копировать B9:O22 как картинку</button>
+    <button id="copy-range">Копировать B9:O22 как картинку</button>
   </div>
 
   <script>
+    // Замените на ваш raw URL из GitHub:
     const EXCEL_URL = 'https://raw.githubusercontent.com/IlyaStogoff/sticker-prices/main/Sticker.food_08.06.25.xlsx';
-    let table;
+    let tableEl;  // здесь будет DOM-элемент <table>
 
-    // 1) Загружаем и рисуем таблицу
+    // 1) Загрузка и отрисовка Excel
     fetch(EXCEL_URL)
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-      .then(data => {
-        const wb = XLSX.read(data,{type:'array'});
-        const sh = wb.Sheets[wb.SheetNames[0]];
-        document.getElementById('table-container').innerHTML =
-          XLSX.utils.sheet_to_html(sh, {header:''});
-        table = document.querySelector('#table-container table');
+      .then(res => {
+        if (!res.ok) throw new Error(`Ошибка загрузки: ${res.status}`);
+        return res.arrayBuffer();
       })
-      .catch(err=>{
-        document.getElementById('table-container').textContent = 'Ошибка: '+err;
+      .then(data => {
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        // Преобразуем в HTML
+        const html = XLSX.utils.sheet_to_html(sheet, { header: '' });
+        document.getElementById('table-container').innerHTML = html;
+        tableEl = document.querySelector('#table-container table');
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('table-container').textContent =
+          'Не удалось загрузить файл: ' + err.message;
       });
 
-    // 2) При клике – рендерим нужный диапазон в canvas → конвертим в Blob → копируем
-    document.getElementById('copy-img').onclick = async () => {
-      if (!table) return alert('Ждите загрузки таблицы…');
+    // 2) Копирование диапазона как картинку
+    document.getElementById('copy-range').addEventListener('click', async () => {
+      if (!tableEl) return alert('Сначала подождите, идет загрузка таблицы');
 
-      // Выделяем див-обёртку нужной области
-      // Создадим временный контейнер и клонируем туда нужные строки/столбцы
-      const temp = document.createElement('table');
-      temp.style.borderCollapse = 'collapse';
-      temp.style.background = '#fff';
-      const startRow=8, endRow=21, startCol=1, endCol=14;
-      for (let i=startRow; i<=endRow; i++){
+      // Клонируем только нужный диапазон B9:O22
+      const startRow = 8,  endRow = 21;  // индексы строк (0-based)
+      const startCol = 1,  endCol = 14;  // индексы столбцов (A=0→B=1, … O=14)
+      const tempTable = document.createElement('table');
+      tempTable.style.borderCollapse = 'collapse';
+      // скопируем строки
+      for (let i = startRow; i <= endRow; i++){
+        const srcRow = tableEl.rows[i];
+        if (!srcRow) continue;
         const tr = document.createElement('tr');
-        const srcRow = table.rows[i];
-        for (let j=startCol; j<=endCol; j++){
-          const cell = srcRow.cells[j].cloneNode(true);
-          // сохраним границы и фон
-          cell.style.border='1px solid #ccc';
-          if (cell.tagName==='TH') cell.style.background='#f0f0f0';
+        for (let j = startCol; j <= endCol; j++){
+          const srcCell = srcRow.cells[j];
+          const cell = srcCell ? srcCell.cloneNode(true) : document.createElement('td');
+          // копируем стили границ и фон
+          cell.style.border = '1px solid #ccc';
+          if (cell.tagName === 'TH') cell.style.background = '#f0f0f0';
           tr.appendChild(cell);
         }
-        temp.appendChild(tr);
+        tempTable.appendChild(tr);
       }
-      // Помещаем временный table в документ, но за пределы экрана, чтобы html2canvas его увидел
-      temp.style.position='fixed';
-      temp.style.top='-10000px';
-      document.body.appendChild(temp);
+      // Прикрепляем временную таблицу вне экрана
+      tempTable.style.position = 'fixed';
+      tempTable.style.top = '-9999px';
+      document.body.appendChild(tempTable);
 
       try {
-        // Рендерим в canvas
-        const canvas = await html2canvas(temp, { scale:2 });
-        // Удаляем временную таблицу
-        document.body.removeChild(temp);
+        // Рендерим во внешний canvas
+        const canvas = await html2canvas(tempTable, { scale: 2 });
+        // Удаляем временный элемент
+        document.body.removeChild(tempTable);
 
-        // Преобразуем canvas в Blob (PNG)
+        // Конвертим canvas → Blob и копируем в буфер
         canvas.toBlob(async blob => {
           try {
-            // Копируем в буфер как изображение
             await navigator.clipboard.write([
               new ClipboardItem({ 'image/png': blob })
             ]);
-            alert('Диапазон скопирован в буфер как изображение!');
+            alert('Диапазон B9:O22 скопирован в буфер как изображение!');
           } catch (e) {
-            alert('Ошибка копирования изображения: ' + e);
+            alert('Ошибка копирования в буфер: ' + e);
           }
         }, 'image/png');
       } catch (e) {
-        alert('Ошибка рендеринга: ' + e);
+        alert('Ошибка рендеринга диапазона: ' + e);
       }
-    };
+    });
   </script>
 
 </body>
